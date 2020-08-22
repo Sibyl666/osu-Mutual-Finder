@@ -1,6 +1,7 @@
 # If you have problem
 As far as i know this problem occurs when you're gmt or something like that.
 # Solution
+As i said if program works fine you don't have to do this
 * Go to the someone's profile.
 * If you already friend with him, remove friend.
 * Press F12.
