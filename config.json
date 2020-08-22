@@ -1,0 +1,8 @@
+{
+    "username": "Sibyl",
+    "password": "passwordhere",
+    "country": ["TR"], // You can add more like ["TR", "US"]
+    "start_from_page": 1, // The page count where program will start to scan players /performance?country={country}&page={page_count}
+    "page_limit": 200 // Max limit is 200 so don't exceed it. This is the page count that program will look at (Every page has 50 players)
+    // if you make it 2 program will check only first 100 players in that country
+}
