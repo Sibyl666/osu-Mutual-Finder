@@ -119,6 +119,7 @@ def get_config():
                         "username": username,
                         "password": password,
                         "country": ["TR"],
+                        "blacklist": [],
                         "start_from_page": 1,
                         "page_limit": 200
                     }, indent=4
@@ -164,6 +165,10 @@ def main():
             # users
             for user in soup.find_all(class_="ranking-page-table__user-link-text js-usercard"):
                 user_id = int(user['data-user-id'])
+
+                if user_id in configs["blacklist"]:
+                    print(f"Blacklisted user: {user_id}")
+                    continue
 
                 if user_id in first_friend_list:
                     print(f"Skipping {user_id}")
