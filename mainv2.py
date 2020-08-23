@@ -118,6 +118,7 @@ def get_config():
                     {
                         "username": username,
                         "password": password,
+                        "add_friend": False,
                         "country": ["TR"],
                         "blacklist": [],
                         "start_from_page": 1,
@@ -125,8 +126,23 @@ def get_config():
                     }, indent=4
                 )
             )
-        with open("config.json", "r", encoding="utf-8") as file:
-            return json.loads(file.read())
+    
+    #Add yourself to blacklist
+    with open("config.json", "r", encoding="utf-8") as file:
+        configs = json.loads(file.read())
+    
+    configs["blacklist"].append(
+        get_user_detail(username)["id"]
+    )
+
+    with open("config.json", "w", encoding="utf-8") as file:
+        file.write(
+            json.dumps(
+                configs, indent=4
+            )
+        )
+
+    return configs
 
 
 def login(username, password):
@@ -177,11 +193,18 @@ def main():
                 print(f"Checking {user_id}")
                 for friend in add_friend(user_id):  # friend list after edded
                     if user_id == friend["target_id"]:  # find the user in list
-                        if str(friend['mutual']) == "True":  # check if mutual
+                        if str(friend['mutual']) == "True":
+                              # check if mutual
                             print(f"Found Mutual: {user_id}")
                             with open("mutuals.txt", "a") as file:
                                 file.write(
                                     f"{user_id} - {get_user_detail(user_id)['username']} \n")
+
+                            if not configs['add_friend']:
+                                session.delete(
+                                    f"https://osu.ppy.sh/home/friends/{user_id}", headers=headers)
+                                break
+
                             break
                         else:
                             session.delete(

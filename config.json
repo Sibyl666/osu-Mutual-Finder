@@ -1,8 +1,9 @@
 {
     "username": "Sibyl",
     "password": "passwordhere",
-    "country": ["TR"], 
-    "blacklist": [], 
-    "start_from_page": 1, 
-    "page_limit": 200 
+    "add_friend": false,
+    "country": ["TR"],
+    "blacklist": [],
+    "start_from_page": 1,
+    "page_limit": 200
 }
