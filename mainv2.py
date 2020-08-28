@@ -157,9 +157,26 @@ def login(username, password):
 
     if status != 200:  # If can't login
         print("Cant Login")
-        login(username, password)
+
+        username = input("username:")
+        password = input("password:")
+
+        configs = get_config()
+        configs["username"] = username
+        configs["password"] = password
+
+        with open("config.json", "w", encoding="utf-8") as file:
+            file.write(
+                json.dumps(
+                    configs,
+                    indent=4
+                )
+            )
+
         with open("log.txt", "a", encoding="utf-8") as file:
             file.write(f"Cant Login status code: {status} \n")
+
+        login(username, password)
 
 
 def main():
