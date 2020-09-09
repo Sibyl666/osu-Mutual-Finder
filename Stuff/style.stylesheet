@@ -1,0 +1,27 @@
+QWidget{
+    font-family: Sen-Bold;
+    font: bold 15px;
+}
+QLineEdit{
+    padding: 5px;
+    border: none;
+    background-color: Transparent;
+}
+QPushButton {
+    background-image : url(Stuff/button.png);
+    padding: 15px;
+    background-color: #2299bb;
+    border: none;
+    border-radius: 10px;
+    color: White;
+}
+QPushButton:focus{
+    border:none;
+    outline:none;
+}
+QListWidget{
+    alternate-background-color: yellow;
+}
+QListWidget{
+    border: none;
+}
