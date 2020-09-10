@@ -86,8 +86,8 @@ class Worker(QRunnable):
                 # users
                 for user in soup.find_all(class_="ranking-page-table__user-link-text js-usercard"):
                     user_id = int(user['data-user-id'])
-                    signals.checking_signal.emit(page_count, 
-                        user_id)  # Update checking label
+                    signals.checking_signal.emit(page_count,
+                                                 user_id)  # Update checking label
 
                     if user_id in self.configs["blacklist"]:
                         continue
@@ -143,6 +143,15 @@ class Form(QWidget):
         signals.found_mutual_signal.connect(self.AddToFoundMutual)
         signals.AddToChecked.connect(self.AddToChecked)
 
+        try:
+            with open("config.json", "r") as file:
+                config = json.loads(file.read())
+            if config["username"] and config["password"]:
+                self.Login(username=config["username"], password=config["password"])
+        except:
+            pass
+
+
     def center_window(self, widget):
         window = widget.window()
         window.setGeometry(
@@ -173,6 +182,7 @@ class Form(QWidget):
         login_widget = QWidget()
         login_widget.setLayout(login_layout)
         self.layout.addWidget(login_widget)
+
 
     def InitVerificationPage(self):  # Widget
         verify_layout = QFormLayout()
@@ -210,9 +220,11 @@ class Form(QWidget):
         main_widget.setLayout(main_layout)
         self.layout.addWidget(main_widget)
 
+
     @Slot(int, int)
     def UpdateChecking(self, page_count, checking_id):
-        self.checking_label.setText(f"Page {page_count} | Checking: {checking_id}")
+        self.checking_label.setText(
+            f"Page {page_count} | Checking: {checking_id}")
 
     @Slot(int)
     def AddToFoundMutual(self, user_id):
@@ -232,11 +244,11 @@ class Form(QWidget):
 
         return token
 
-    def Login(self):
+    def Login(self, **kwargs):
         print("Logging in")
 
-        username = self.username_textbox.text()
-        password = self.password_textbox.text()
+        username = kwargs.get("username", self.username_textbox.text())
+        password = kwargs.get("password", self.password_textbox.text())
         data = {
             '_token': self.get_token(),
             'username': username,
@@ -325,9 +337,6 @@ class Form(QWidget):
             )
 
         return configs
-
-    def ChangePage(self, page_id: int):
-        self.layout.setCurrentIndex(page_id)
 
 
 if __name__ == '__main__':
