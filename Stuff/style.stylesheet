@@ -20,8 +20,9 @@ QPushButton:focus{
     outline:none;
 }
 QListWidget{
-    alternate-background-color: yellow;
-}
-QListWidget{
     border: none;
+}
+QListWidget:focus{
+    border:none;
+    outline:none;
 }

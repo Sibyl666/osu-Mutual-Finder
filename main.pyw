@@ -2,12 +2,14 @@ import requests
 import json
 import time
 import webbrowser
+import asyncio
+from aiohttp import ClientSession
 from Modules.PushButton import PushButton
 from bs4 import BeautifulSoup
 from PySide2.QtWidgets import QApplication, QWidget, QStackedLayout, QFormLayout, QGridLayout, QPushButton, QLabel, \
     QLineEdit, QStyle, QListWidget, QListWidgetItem
-from PySide2.QtCore import Qt, QRunnable, QThreadPool, QObject, Signal, Slot, QVariantAnimation, QAbstractAnimation
-from PySide2.QtGui import QGuiApplication, QFontDatabase, QColor
+from PySide2.QtCore import Qt, QRunnable, QThreadPool, QObject, Signal, Slot, QVariantAnimation, QAbstractAnimation, QSize
+from PySide2.QtGui import QGuiApplication, QFontDatabase, QColor, QPixmap, QIcon
 
 
 class Communicate(QObject):
@@ -151,7 +153,6 @@ class Form(QWidget):
         except:
             pass
 
-
     def center_window(self, widget):
         window = widget.window()
         window.setGeometry(
@@ -183,7 +184,6 @@ class Form(QWidget):
         login_widget.setLayout(login_layout)
         self.layout.addWidget(login_widget)
 
-
     def InitVerificationPage(self):  # Widget
         verify_layout = QFormLayout()
 
@@ -204,9 +204,11 @@ class Form(QWidget):
         main_layout = QGridLayout()
 
         self.mutuals_to_check = QListWidget()
+        self.mutuals_to_check.setIconSize(QSize(32, 32))
         self.mutuals_to_check.itemDoubleClicked.connect(
             self.RedirectToUserProfile)
         self.found_mutuals = QListWidget()
+        self.found_mutuals.setIconSize(QSize(32, 32))
         self.checking_label = QLabel("Page: 1 | Checking: 123456")
         self.checking_label.setAlignment(Qt.AlignCenter)
 
@@ -220,7 +222,6 @@ class Form(QWidget):
         main_widget.setLayout(main_layout)
         self.layout.addWidget(main_widget)
 
-
     @Slot(int, int)
     def UpdateChecking(self, page_count, checking_id):
         self.checking_label.setText(
@@ -228,11 +229,36 @@ class Form(QWidget):
 
     @Slot(int)
     def AddToFoundMutual(self, user_id):
-        self.found_mutuals.addItem(str(user_id))
+        icon, user_details = asyncio.run(self.GetIconAndUsername(user_id))
+
+        list_widget_item = QListWidgetItem(user_details["username"])
+        list_widget_item.setIcon(icon)
+        self.found_mutuals.addItem(list_widget_item)
 
     @Slot(int)
     def AddToChecked(self, user_id):
-        self.mutuals_to_check.addItem(str(user_id))
+        icon, user_details = asyncio.run(self.GetIconAndUsername(user_id))
+
+        list_widget_item = QListWidgetItem(user_details["username"])
+        list_widget_item.setIcon(icon)
+        self.mutuals_to_check.addItem(list_widget_item)
+
+    async def GetIconAndUsername(self, user_id):
+        return await asyncio.gather(
+            self.GetIcon(user_id),
+            self.get_user_detail(user_id)
+        )
+
+    async def GetIcon(self, user_id):
+        pixmap = QPixmap()
+        url = f"https://a.ppy.sh/{user_id}"
+
+        async with ClientSession() as session:
+            async with session.get(url) as response:
+                image_data = await response.read()
+
+        pixmap.loadFromData(image_data)
+        return QIcon(pixmap)
 
     def RedirectToUserProfile(self, item):
         webbrowser.open(f"https://osu.ppy.sh/users/{item.text()}")
@@ -291,9 +317,12 @@ class Form(QWidget):
             self.verify_error_label.setText(
                 "Cant verify. Check if the key is correct.")
 
-    def get_user_detail(self, user_id):
-        user_page = requests.get(
-            f"https://osu.ppy.sh/users/{user_id}").content
+    async def get_user_detail(self, user_id):
+        url = f"https://osu.ppy.sh/users/{user_id}"
+
+        async with ClientSession() as session:
+            async with session.get(url) as response:
+                user_page = await response.read()
 
         soup = BeautifulSoup(user_page, "html.parser")
         details = json.loads(soup.find(id="json-user").string)
