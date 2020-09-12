@@ -3,7 +3,7 @@ import json
 import time
 import webbrowser
 import asyncio
-from aiohttp import ClientSession
+from aiohttp import ClientSession, TCPConnector
 from Modules.PushButton import PushButton
 from bs4 import BeautifulSoup
 from PySide2.QtWidgets import QApplication, QWidget, QStackedLayout, QFormLayout, QGridLayout, QPushButton, QLabel, \
@@ -53,7 +53,12 @@ class Worker(QRunnable):
         time.sleep(4)
         new_friend_list = session.post(
             f"https://osu.ppy.sh/home/friends?target={user_id}", headers=headers)
-        if new_friend_list.status_code == 200:
+
+        
+        if new_friend_list.status_code == 422:
+            with open("error.txt", "w") as file:
+                file.write(str(new_friend_list.status_code))
+        elif new_friend_list.status_code == 200:
             return new_friend_list.json()
         elif new_friend_list.status_code == 429:
             time.sleep(10)
@@ -253,7 +258,7 @@ class Form(QWidget):
         pixmap = QPixmap()
         url = f"https://a.ppy.sh/{user_id}"
 
-        async with ClientSession() as session:
+        async with ClientSession(connector=TCPConnector(ssl=False)) as session:
             async with session.get(url) as response:
                 image_data = await response.read()
 
@@ -320,7 +325,7 @@ class Form(QWidget):
     async def async_get_user_detail(self, user_id):
         url = f"https://osu.ppy.sh/users/{user_id}"
 
-        async with ClientSession() as session:
+        async with ClientSession(connector=TCPConnector(ssl=False)) as session:
             async with session.get(url) as response:
                 user_page = await response.read()
 
