@@ -50,7 +50,7 @@ class Worker(QRunnable):
         return details
 
     def add_friend(self, user_id):
-        time.sleep(5)
+        time.sleep(4)
         new_friend_list = session.post(
             f"https://osu.ppy.sh/home/friends?target={user_id}", headers=headers)
         if new_friend_list.status_code == 200:
@@ -246,7 +246,7 @@ class Form(QWidget):
     async def GetIconAndUsername(self, user_id):
         return await asyncio.gather(
             self.GetIcon(user_id),
-            self.get_user_detail(user_id)
+            self.async_get_user_detail(user_id)
         )
 
     async def GetIcon(self, user_id):
@@ -317,12 +317,21 @@ class Form(QWidget):
             self.verify_error_label.setText(
                 "Cant verify. Check if the key is correct.")
 
-    async def get_user_detail(self, user_id):
+    async def async_get_user_detail(self, user_id):
         url = f"https://osu.ppy.sh/users/{user_id}"
 
         async with ClientSession() as session:
             async with session.get(url) as response:
                 user_page = await response.read()
+
+        soup = BeautifulSoup(user_page, "html.parser")
+        details = json.loads(soup.find(id="json-user").string)
+
+        return details
+
+    def get_user_detail(self, user_id):
+        user_page = requests.get(
+            f"https://osu.ppy.sh/users/{user_id}").content
 
         soup = BeautifulSoup(user_page, "html.parser")
         details = json.loads(soup.find(id="json-user").string)
