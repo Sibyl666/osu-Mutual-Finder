@@ -3,6 +3,7 @@ import json
 import time
 import webbrowser
 import asyncio
+import threading
 from aiohttp import ClientSession, TCPConnector
 from Modules.PushButton import PushButton
 from bs4 import BeautifulSoup
@@ -14,7 +15,7 @@ from PySide2.QtGui import QGuiApplication, QFontDatabase, QColor, QPixmap, QIcon
 
 class Communicate(QObject):
     checking_signal = Signal(int, int)
-    AddToChecked = Signal(int)
+    AddToChecked = Signal(int, QIcon, str)
     found_mutual_signal = Signal(int)
 
 
@@ -39,34 +40,7 @@ class Worker(QRunnable):
     def __init__(self, configs):
         super(Worker, self).__init__()
         self.configs = configs
-
-    def get_user_detail(self, user_id):
-        user_page = requests.get(
-            f"https://osu.ppy.sh/users/{user_id}").content
-
-        soup = BeautifulSoup(user_page, "html.parser")
-        details = json.loads(soup.find(id="json-user").string)
-
-        return details
-
-    def add_friend(self, user_id):
-        time.sleep(4)
-        new_friend_list = session.post(
-            f"https://osu.ppy.sh/home/friends?target={user_id}", headers=headers)
-
-        
-        if new_friend_list.status_code == 422:
-            with open("error.txt", "w") as file:
-                file.write(str(new_friend_list.status_code))
-        elif new_friend_list.status_code == 200:
-            return new_friend_list.json()
-        elif new_friend_list.status_code == 429:
-            time.sleep(10)
-
-            new_friend_list = session.post(
-                f"https://osu.ppy.sh/home/friends?target={user_id}", headers=headers)
-
-            return new_friend_list.json()
+        self.first_friend_list = self.get_first_friend_list()
 
     def get_first_friend_list(self):
         try:
@@ -82,8 +56,55 @@ class Worker(QRunnable):
 
             return [friend_id["id"] for friend_id in friends_json]
 
+    def add_friend(self, user_id):
+        time.sleep(4)
+        new_friend_list = session.post(
+            f"https://osu.ppy.sh/home/friends?target={user_id}", headers=headers)
+
+        if new_friend_list.status_code == 422:
+            with open("error.txt", "w") as file:
+                file.write(str(new_friend_list.status_code))
+        elif new_friend_list.status_code == 200:
+            return new_friend_list.json()
+        elif new_friend_list.status_code == 429:
+            time.sleep(10)
+
+            new_friend_list = session.post(
+                f"https://osu.ppy.sh/home/friends?target={user_id}", headers=headers)
+
+            return new_friend_list.json()
+
+    async def GetIconAndUsername(self, user_id):
+        return await asyncio.gather(
+            self.GetIcon(user_id),
+            self.async_get_user_detail(user_id)
+        )
+
+    async def GetIcon(self, user_id):
+        pixmap = QPixmap()
+        url = f"https://a.ppy.sh/{user_id}"
+
+        async with ClientSession(connector=TCPConnector(ssl=False)) as session:
+            async with session.get(url) as response:
+                image_data = await response.read()
+
+        pixmap.loadFromData(image_data)
+        return QIcon(pixmap)
+
+    async def async_get_user_detail(self, user_id):
+        url = f"https://osu.ppy.sh/users/{user_id}"
+
+        async with ClientSession(connector=TCPConnector(ssl=False)) as session:
+            async with session.get(url) as response:
+                user_page = await response.read()
+
+        soup = BeautifulSoup(user_page, "html.parser")
+        details = json.loads(soup.find(id="json-user").string)
+
+        return details["username"]
+
     def run(self):  # Main Work here
-        first_friend_list = self.get_first_friend_list()
+        
         for country in self.configs['country']:
             for page_count in range(self.configs['start_from_page'], self.configs['page_limit'] + 1):
                 country_url_page = requests.get(
@@ -93,38 +114,37 @@ class Worker(QRunnable):
                 # users
                 for user in soup.find_all(class_="ranking-page-table__user-link-text js-usercard"):
                     user_id = int(user['data-user-id'])
-                    signals.checking_signal.emit(page_count,
-                                                 user_id)  # Update checking label
-
+                    
                     if user_id in self.configs["blacklist"]:
                         continue
 
-                    if user_id in first_friend_list:
+                    if user_id in self.first_friend_list:
                         continue
 
-                    signals.AddToChecked.emit(user_id)  # Add to Checked
+                    signals.checking_signal.emit(page_count, user_id)  # Update checking label
+                    icon, username = asyncio.run(self.GetIconAndUsername(user_id))
+                    signals.AddToChecked.emit(user_id, icon, username)  # Add to Checked
+
                     # friend list after edded
                     for friend in self.add_friend(user_id):
                         if user_id == friend["target_id"]:  # find the user in list
                             if str(friend['mutual']) == "True":  # Check if mutual
 
                                 # If mutual add to mutuals list widget
-                                signals.found_mutual_signal.emit(user_id)
+                                signals.found_mutual_signal.emit(user_id, icon, username)
 
                                 with open("mutuals.txt", "a") as file:
                                     file.write(
-                                        f"{user_id} - {self.get_user_detail(user_id)['username']} \n")
+                                        f"{user_id} - {username} \n")
 
                                 if not self.configs['add_friend']:
                                     session.delete(
                                         f"https://osu.ppy.sh/home/friends/{user_id}", headers=headers)
                                     break
 
-                                break
                             else:
                                 session.delete(
                                     f"https://osu.ppy.sh/home/friends/{user_id}", headers=headers)
-                                break
 
 
 class Form(QWidget):
@@ -233,37 +253,16 @@ class Form(QWidget):
             f"Page {page_count} | Checking: {checking_id}")
 
     @Slot(int)
-    def AddToFoundMutual(self, user_id):
-        icon, user_details = asyncio.run(self.GetIconAndUsername(user_id))
-
-        list_widget_item = QListWidgetItem(user_details["username"])
+    def AddToFoundMutual(self, user_id, icon, username):
+        list_widget_item = QListWidgetItem(username)
         list_widget_item.setIcon(icon)
         self.found_mutuals.addItem(list_widget_item)
 
     @Slot(int)
-    def AddToChecked(self, user_id):
-        icon, user_details = asyncio.run(self.GetIconAndUsername(user_id))
-
-        list_widget_item = QListWidgetItem(user_details["username"])
+    def AddToChecked(self, user_id, icon, username):
+        list_widget_item = QListWidgetItem(username)
         list_widget_item.setIcon(icon)
         self.mutuals_to_check.addItem(list_widget_item)
-
-    async def GetIconAndUsername(self, user_id):
-        return await asyncio.gather(
-            self.GetIcon(user_id),
-            self.async_get_user_detail(user_id)
-        )
-
-    async def GetIcon(self, user_id):
-        pixmap = QPixmap()
-        url = f"https://a.ppy.sh/{user_id}"
-
-        async with ClientSession(connector=TCPConnector(ssl=False)) as session:
-            async with session.get(url) as response:
-                image_data = await response.read()
-
-        pixmap.loadFromData(image_data)
-        return QIcon(pixmap)
 
     def RedirectToUserProfile(self, item):
         webbrowser.open(f"https://osu.ppy.sh/users/{item.text()}")
@@ -276,8 +275,6 @@ class Form(QWidget):
         return token
 
     def Login(self, **kwargs):
-        print("Logging in")
-
         username = kwargs.get("username", self.username_textbox.text())
         password = kwargs.get("password", self.password_textbox.text())
         data = {
@@ -297,6 +294,8 @@ class Form(QWidget):
             session.get("https://osu.ppy.sh/home/account/edit")
         else:
             self.login_error_label.setText("Cant Login")
+            with open("error.txt", "a") as file:
+                file.write(f"Cant login. {status} \n")
 
     def update_headers(self):
         page = session.get("https://osu.ppy.sh/home/friends").content
@@ -321,18 +320,6 @@ class Form(QWidget):
         else:
             self.verify_error_label.setText(
                 "Cant verify. Check if the key is correct.")
-
-    async def async_get_user_detail(self, user_id):
-        url = f"https://osu.ppy.sh/users/{user_id}"
-
-        async with ClientSession(connector=TCPConnector(ssl=False)) as session:
-            async with session.get(url) as response:
-                user_page = await response.read()
-
-        soup = BeautifulSoup(user_page, "html.parser")
-        details = json.loads(soup.find(id="json-user").string)
-
-        return details
 
     def get_user_detail(self, user_id):
         user_page = requests.get(
