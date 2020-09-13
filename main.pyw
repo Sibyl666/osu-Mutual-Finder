@@ -135,6 +135,13 @@ class Worker(QRunnable):
                     signals.AddToChecked.emit(user_id, icon, username)  # Add to Checked
 
                     # friend list after edded
+                    friend_list_after_added = self.add_friend(user_id)
+
+                    if friend_list_after_added is None:
+                        with open("error.txt", "a") as file:
+                            file.write(f"Cant add {user_id} returned None")
+                        continue
+
                     for friend in self.add_friend(user_id):
                         if user_id == friend["target_id"]:  # find the user in list
                             if str(friend['mutual']) == "True":  # Check if mutual
@@ -281,11 +288,7 @@ class Form(QWidget):
         if page.status_code == 200:
             soup = BeautifulSoup(page.content, "html.parser")
             token = soup.find(name="meta", attrs={"name": "csrf-token"})["content"]
-            if not token is None:
-                return token
-            else:
-                with open("error.txt", "a") as file:
-                    file.write(f"Cant find token {page.status_code} \n")
+            return token
         else:
             with open("error.txt", "a") as file:
                 file.write(f"Cant Get token {page.status_code} \n")
@@ -351,11 +354,7 @@ class Form(QWidget):
         if user_page.status_code == 200:
             soup = BeautifulSoup(user_page.content, "html.parser")
             details = json.loads(soup.find(id="json-user").string)
-            if not details is None:
-                return details
-            else:
-                with open("error.txt", "a") as file:
-                    file.write(f"Cant Find json-user {user_page.status_code} \n")
+            return details
         else:
             with open("error.txt", "a") as file:
                 file.write(f"Cant get user detail {user_page.status_code} \n")
@@ -374,29 +373,16 @@ class Form(QWidget):
                             "password": self.password_textbox.text(),
                             "add_friend": False,
                             "country": ["TR"],
-                            "blacklist": [],
+                            "blacklist": [self.get_user_detail(self.username_textbox.text())["id"]],
                             "start_from_page": 1,
                             "page_limit": 200
                         }, indent=4
                     )
                 )
+            with open("config.json", "r", encoding="utf-8") as file:
+                configs = json.loads(file.read())
 
-        # Add yourself to blacklist
-        with open("config.json", "r", encoding="utf-8") as file:
-            configs = json.loads(file.read())
-
-        configs["blacklist"].append(
-            self.get_user_detail(self.username_textbox.text())["id"]
-        )
-
-        with open("config.json", "w", encoding="utf-8") as file:
-            file.write(
-                json.dumps(
-                    configs, indent=4
-                )
-            )
-
-        return configs
+            return configs
 
 
 if __name__ == '__main__':
