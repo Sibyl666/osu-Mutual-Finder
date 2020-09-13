@@ -4,6 +4,7 @@ import time
 import webbrowser
 import asyncio
 import threading
+import traceback
 from aiohttp import ClientSession, TCPConnector
 from Modules.PushButton import PushButton
 from bs4 import BeautifulSoup
@@ -58,21 +59,21 @@ class Worker(QRunnable):
 
     def add_friend(self, user_id):
         time.sleep(4)
-        new_friend_list = session.post(
+        try:
+            new_friend_list = session.post(
             f"https://osu.ppy.sh/home/friends?target={user_id}", headers=headers)
+        except:
+            with open("error.txt", "a") as file:
+                file.write(f"Cant Add Friend exception {traceback.format_exc()}")
 
-        if new_friend_list.status_code == 422:
-            with open("error.txt", "w") as file:
-                file.write(str(new_friend_list.status_code))
-        elif new_friend_list.status_code == 200:
+        if new_friend_list.status_code == 200:
             return new_friend_list.json()
         elif new_friend_list.status_code == 429:
             time.sleep(10)
-
-            new_friend_list = session.post(
-                f"https://osu.ppy.sh/home/friends?target={user_id}", headers=headers)
-
-            return new_friend_list.json()
+            self.add_friend(user_id)
+        else:
+            with open("error.txt", "a") as file:
+                file.write(f"Cant Add Friend {new_friend_list.status_code} \n")
 
     async def GetIconAndUsername(self, user_id):
         return await asyncio.gather(
@@ -81,27 +82,35 @@ class Worker(QRunnable):
         )
 
     async def GetIcon(self, user_id):
-        pixmap = QPixmap()
-        url = f"https://a.ppy.sh/{user_id}"
+        try:
+            pixmap = QPixmap()
+            url = f"https://a.ppy.sh/{user_id}"
 
-        async with ClientSession(connector=TCPConnector(ssl=False)) as session:
-            async with session.get(url) as response:
-                image_data = await response.read()
+            async with ClientSession(connector=TCPConnector(ssl=False)) as session:
+                async with session.get(url) as response:
+                    image_data = await response.read()
 
-        pixmap.loadFromData(image_data)
-        return QIcon(pixmap)
+            pixmap.loadFromData(image_data)
+            return QIcon(pixmap)
+        except:
+            with open("error.txt", "a") as file:
+                file.write(f"Cant get icon exception {traceback.format_exc()} \n")
 
     async def async_get_user_detail(self, user_id):
-        url = f"https://osu.ppy.sh/users/{user_id}"
+        try:
+            url = f"https://osu.ppy.sh/users/{user_id}"
 
-        async with ClientSession(connector=TCPConnector(ssl=False)) as session:
-            async with session.get(url) as response:
-                user_page = await response.read()
+            async with ClientSession(connector=TCPConnector(ssl=False)) as session:
+                async with session.get(url) as response:
+                    user_page = await response.read()
 
-        soup = BeautifulSoup(user_page, "html.parser")
-        details = json.loads(soup.find(id="json-user").string)
+            soup = BeautifulSoup(user_page, "html.parser")
+            details = json.loads(soup.find(id="json-user").string)
 
-        return details["username"]
+            return details["username"]
+        except:
+            with open("error.txt", "a") as file:
+                file.write(f"Cant Add Friend exception {traceback.format_exc()} \n")
 
     def run(self):  # Main Work here
         
@@ -268,11 +277,18 @@ class Form(QWidget):
         webbrowser.open(f"https://osu.ppy.sh/users/{item.text()}")
 
     def get_token(self):
-        page = session.get("https://osu.ppy.sh/home").content
-        soup = BeautifulSoup(page, "html.parser")
-        token = soup.find(name="meta", attrs={"name": "csrf-token"})["content"]
-
-        return token
+        page = session.get("https://osu.ppy.sh/home")
+        if page.status_code == 200:
+            soup = BeautifulSoup(page.content, "html.parser")
+            token = soup.find(name="meta", attrs={"name": "csrf-token"})["content"]
+            if not token is None:
+                return token
+            else:
+                with open("error.txt", "a") as file:
+                    file.write(f"Cant find token {page.status_code} \n")
+        else:
+            with open("error.txt", "a") as file:
+                file.write(f"Cant Get token {page.status_code} \n")
 
     def Login(self, **kwargs):
         username = kwargs.get("username", self.username_textbox.text())
@@ -295,15 +311,19 @@ class Form(QWidget):
         else:
             self.login_error_label.setText("Cant Login")
             with open("error.txt", "a") as file:
-                file.write(f"Cant login. {status} \n")
+                file.write(f"Cant login {status} \n")
 
     def update_headers(self):
-        page = session.get("https://osu.ppy.sh/home/friends").content
-        soup = BeautifulSoup(page, "html.parser")
-        token_after_login = soup.find(
-            name="meta", attrs={"name": "csrf-token"})["content"]
+        page = session.get("https://osu.ppy.sh/home/friends")
+        if page.status_code == 200:
+            soup = BeautifulSoup(page.content, "html.parser")
+            token_after_login = soup.find(
+                name="meta", attrs={"name": "csrf-token"})["content"]
 
-        headers['X-CSRF-Token'] = token_after_login
+            headers['X-CSRF-Token'] = token_after_login
+        else:
+            with open("error.txt", "a") as file:
+                file.write(f"Cant update headers {page.status_code} \n")
 
     def verifymail(self):
         self.update_headers()
@@ -321,14 +341,24 @@ class Form(QWidget):
             self.verify_error_label.setText(
                 "Cant verify. Check if the key is correct.")
 
+            with open("error.txt", "a") as file:
+                file.write(f"Cant verify {status} \n")
+
     def get_user_detail(self, user_id):
         user_page = requests.get(
-            f"https://osu.ppy.sh/users/{user_id}").content
+            f"https://osu.ppy.sh/users/{user_id}")
 
-        soup = BeautifulSoup(user_page, "html.parser")
-        details = json.loads(soup.find(id="json-user").string)
-
-        return details
+        if user_page.status_code == 200:
+            soup = BeautifulSoup(user_page.content, "html.parser")
+            details = json.loads(soup.find(id="json-user").string)
+            if not details is None:
+                return details
+            else:
+                with open("error.txt", "a") as file:
+                    file.write(f"Cant Find json-user {user_page.status_code} \n")
+        else:
+            with open("error.txt", "a") as file:
+                file.write(f"Cant get user detail {user_page.status_code} \n")
 
     def get_config(self):
         try:
