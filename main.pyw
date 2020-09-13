@@ -58,13 +58,13 @@ class Worker(QRunnable):
             return [friend_id["id"] for friend_id in friends_json]
 
     def add_friend(self, user_id):
-        time.sleep(4)
+        time.sleep(3)
         try:
             new_friend_list = session.post(
             f"https://osu.ppy.sh/home/friends?target={user_id}", headers=headers)
         except:
             with open("error.txt", "a") as file:
-                file.write(f"Cant Add Friend exception {traceback.format_exc()}")
+                file.write(f"Cant Add Friend exception {traceback.format_exc()} \n")
 
         if new_friend_list.status_code == 200:
             return new_friend_list.json()
@@ -139,7 +139,7 @@ class Worker(QRunnable):
 
                     if friend_list_after_added is None:
                         with open("error.txt", "a") as file:
-                            file.write(f"Cant add {user_id} returned None")
+                            file.write(f"Cant add {user_id} returned None \n")
                         continue
 
                     for friend in self.add_friend(user_id):
@@ -211,6 +211,7 @@ class Form(QWidget):
         self.username_textbox = QLineEdit()
         self.username_textbox.setPlaceholderText("Username")
         self.password_textbox = QLineEdit()
+        self.password_textbox.setEchoMode(QLineEdit.Password)
         self.password_textbox.setPlaceholderText("Password")
         self.login_button = PushButton("Login")
 
@@ -250,6 +251,7 @@ class Form(QWidget):
             self.RedirectToUserProfile)
         self.found_mutuals = QListWidget()
         self.found_mutuals.setIconSize(QSize(32, 32))
+        self.found_mutuals.itemDoubleClicked.connect(self.RedirectToUserProfile)
         self.checking_label = QLabel("Page: 1 | Checking: 123456")
         self.checking_label.setAlignment(Qt.AlignCenter)
 
