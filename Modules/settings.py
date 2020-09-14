@@ -108,7 +108,11 @@ class SettingsWidget(QWidget):
         self.remove_config("blacklist", int(item.text()))
 
     def remove_from_config_country(self, item):
-        self.remove_config("country", item.text())
+        if self.countrywidget.count() > 1:
+            item = self.countrywidget.findItems(item.text(), Qt.MatchExactly)[0]
+            row = self.countrywidget.row(item)
+            self.countrywidget.takeItem(row)
+            self.remove_config("country", item.text())
         
     def load_settings(self):
         config = self.get_config()
@@ -119,6 +123,9 @@ class SettingsWidget(QWidget):
             self.countrywidget.addItem(country)
 
         for blacklist in config["blacklist"]:
+            if blacklist == config["blacklist"][0]:
+                continue
+            
             self.blacklistwidget.addItem(str(blacklist))
 
         self.startfrompage.setValue(config["start_from_page"])

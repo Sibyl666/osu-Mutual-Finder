@@ -19,6 +19,7 @@ class Communicate(QObject):
     checking_signal = Signal(int, int)
     AddToChecked = Signal(int, QIcon, str)
     found_mutual_signal = Signal(int, QIcon, str)
+    update_config_signal = Signal()
 
 
 signals = Communicate()
@@ -43,6 +44,8 @@ class Worker(QRunnable):
         super(Worker, self).__init__()
         self.configs = configs
         self.first_friend_list = self.get_first_friend_list()
+
+        signals.update_config_signal.connect(self.update_config)
 
     def get_first_friend_list(self):
         try:
@@ -75,6 +78,16 @@ class Worker(QRunnable):
         else:
             with open("error.txt", "a") as file:
                 file.write(f"Cant Add Friend {new_friend_list.status_code} \n")
+
+    @Slot()
+    def update_config(self):
+        try:
+            with open("config.json", "r", encoding="utf-8") as file:
+                self.configs = json.loads(file.read())
+        except Exception as err:
+            with open("error.txt", "a") as file:
+                file.write(f"Cant update config {err} \n")
+            
 
     async def GetIconAndUsername(self, user_id):
         return await asyncio.gather(
@@ -114,7 +127,6 @@ class Worker(QRunnable):
                 file.write(f"Cant Add Friend exception {traceback.format_exc()} \n")
 
     def run(self):  # Main Work here
-        
         for country in self.configs['country']:
             for page_count in range(self.configs['start_from_page'], self.configs['page_limit'] + 1):
                 country_url_page = requests.get(
@@ -201,6 +213,7 @@ class Form(QWidget):
 
     def return_back(self):
         self.layout.setCurrentIndex(2)
+        signals.update_config_signal.emit()
 
     def center_window(self, widget):
         window = widget.window()
@@ -279,7 +292,6 @@ class Form(QWidget):
         self.layout.addWidget(main_widget)
 
     def OpenSettingsPage(self):
-        self.settingswidget.load_settings()
         self.layout.setCurrentIndex(3)
 
     @Slot(int, int)
@@ -358,6 +370,7 @@ class Form(QWidget):
 
             # Start Checking
             worker = Worker(self.get_config())
+            self.settingswidget.load_settings()
             self.threadpool.start(worker)
         else:
             self.verify_error_label.setText(
