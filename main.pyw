@@ -7,6 +7,7 @@ import threading
 import traceback
 from aiohttp import ClientSession, TCPConnector
 from Modules.PushButton import PushButton
+from Modules.settings import SettingsWidget
 from bs4 import BeautifulSoup
 from PySide2.QtWidgets import QApplication, QWidget, QStackedLayout, QFormLayout, QGridLayout, QPushButton, QLabel, \
     QLineEdit, QStyle, QListWidget, QListWidgetItem
@@ -17,7 +18,7 @@ from PySide2.QtGui import QGuiApplication, QFontDatabase, QColor, QPixmap, QIcon
 class Communicate(QObject):
     checking_signal = Signal(int, int)
     AddToChecked = Signal(int, QIcon, str)
-    found_mutual_signal = Signal(int)
+    found_mutual_signal = Signal(int, QIcon, str)
 
 
 signals = Communicate()
@@ -178,6 +179,10 @@ class Form(QWidget):
         self.InitLoginPage()
         self.InitVerificationPage()
         self.InitMainPage()
+        
+        self.settingswidget = SettingsWidget()
+        self.settingswidget.returnback_button.pressed.connect(self.return_back)
+        self.layout.addWidget(self.settingswidget)
 
         self.setLayout(self.layout)
 
@@ -193,6 +198,9 @@ class Form(QWidget):
                 self.Login(username=config["username"], password=config["password"])
         except:
             pass
+
+    def return_back(self):
+        self.layout.setCurrentIndex(2)
 
     def center_window(self, widget):
         window = widget.window()
@@ -244,6 +252,7 @@ class Form(QWidget):
 
     def InitMainPage(self):  # Widget
         main_layout = QGridLayout()
+        main_layout.setRowStretch(1, 5)
 
         self.mutuals_to_check = QListWidget()
         self.mutuals_to_check.setIconSize(QSize(32, 32))
@@ -255,15 +264,23 @@ class Form(QWidget):
         self.checking_label = QLabel("Page: 1 | Checking: 123456")
         self.checking_label.setAlignment(Qt.AlignCenter)
 
+        self.settingsbutton = PushButton("Settings")
+        self.settingsbutton.pressed.connect(self.OpenSettingsPage)
+        
         main_layout.addWidget(QLabel("Checked list"), 0, 0)
         main_layout.addWidget(self.mutuals_to_check, 1, 0)
         main_layout.addWidget(QLabel("Found Mutuals"), 0, 1)
         main_layout.addWidget(self.found_mutuals, 1, 1)
         main_layout.addWidget(self.checking_label, 2, 0)
+        main_layout.addWidget(self.settingsbutton, 3, 0, 1, 2)
 
         main_widget = QWidget()
         main_widget.setLayout(main_layout)
         self.layout.addWidget(main_widget)
+
+    def OpenSettingsPage(self):
+        self.settingswidget.load_settings()
+        self.layout.setCurrentIndex(3)
 
     @Slot(int, int)
     def UpdateChecking(self, page_count, checking_id):

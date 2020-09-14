@@ -26,3 +26,18 @@ QListWidget:focus{
     border:none;
     outline:none;
 }
+QSpinBox{
+    padding-right: 15px;
+}
+QSpinBox::up-button{
+    border-image: url("./Stuff/up-arrow.png");
+    subcontrol-position: top right;
+    width: 10px;
+    border-width: 1px;
+}
+QSpinBox::down-button{
+    border-image: url("./Stuff/down-arrow.png");
+    subcontrol-position: bottom right;
+    width: 10px;
+    border-width: 1px;
+}
