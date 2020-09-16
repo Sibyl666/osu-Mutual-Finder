@@ -88,7 +88,6 @@ class Worker(QRunnable):
             with open("error.txt", "a") as file:
                 file.write(f"Cant update config {err} \n")
             
-
     async def GetIconAndUsername(self, user_id):
         return await asyncio.gather(
             self.GetIcon(user_id),
