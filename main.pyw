@@ -154,7 +154,7 @@ class Worker(QRunnable):
                             file.write(f"Cant add {user_id} returned None \n")
                         continue
 
-                    for friend in self.add_friend(user_id):
+                    for friend in friend_list_after_added:
                         if user_id == friend["target_id"]:  # find the user in list
                             if str(friend['mutual']) == "True":  # Check if mutual
 
